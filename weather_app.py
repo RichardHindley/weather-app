@@ -1,6 +1,9 @@
 import requests
-from tkinter import Tk, Label, Entry, Button, StringVar, OptionMenu
+from tkinter import Tk, Label, Entry, Button, StringVar, Frame, Canvas
+from tkinter import ttk
 from datetime import datetime
+from PIL import Image, ImageTk
+from io import BytesIO  # Import BytesIO
 
 def get_weather(city, unit):
     api_key = "bc60a04d7d03b59ce5c84d3eae44ea49"
@@ -20,13 +23,17 @@ def show_weather():
             wind = weather["wind"]
             sys = weather["sys"]
             weather_desc = weather["weather"][0]["description"]
+            icon_code = weather["weather"][0]["icon"]
+            icon_url = f"http://openweathermap.org/img/wn/{icon_code}.png"
             temperature_unit = "C" if unit == "Celsius" else "F"
             temperature = main["temp"]
             feels_like = main["feels_like"]
             temp_min = main["temp_min"]
             temp_max = main["temp_max"]
+            pressure = main["pressure"]
             humidity = main["humidity"]
             wind_speed = wind["speed"]
+            wind_deg = wind.get("deg", 0)
             visibility = weather.get("visibility", 0)
             cloudiness = weather["clouds"]["all"]
             sunrise = datetime.utcfromtimestamp(sys["sunrise"]).strftime('%Y-%m-%d %H:%M:%S')
@@ -36,41 +43,71 @@ def show_weather():
                 f"Weather: {weather_desc.capitalize()}\n"
                 f"Temperature: {temperature}°{temperature_unit} (Feels like: {feels_like}°{temperature_unit})\n"
                 f"Min/Max Temperature: {temp_min}°{temperature_unit}/{temp_max}°{temperature_unit}\n"
+                f"Pressure: {pressure} hPa\n"
                 f"Humidity: {humidity}%\n"
-                f"Wind: {wind_speed} m/s\n"
+                f"Wind: {wind_speed} m/s at {wind_deg}°\n"
                 f"Visibility: {visibility} m\n"
                 f"Cloudiness: {cloudiness}%\n"
                 f"Sunrise: {sunrise} UTC\n"
                 f"Sunset: {sunset} UTC"
             )
+
+            weather_label.config(text=weather_info)
+            display_weather_icon(icon_url)
+
         except KeyError as e:
             weather_info = f"Key error: {e}. Response was: {weather}"
+            weather_label.config(text=weather_info)
     else:
         weather_info = "City Not Found!"
-    weather_label.config(text=weather_info)
+        weather_label.config(text=weather_info)
+
+def display_weather_icon(icon_url):
+    response = requests.get(icon_url)
+    img_data = response.content
+    img = Image.open(BytesIO(img_data))
+    img = img.resize((100, 100), Image.ANTIALIAS)
+    img = ImageTk.PhotoImage(img)
+
+    icon_canvas.create_image(50, 50, anchor='center', image=img)
+    icon_canvas.image = img
 
 app = Tk()
 app.title("Weather App")
+app.geometry("600x600")
 
-city_label = Label(app, text="City Name:")
-city_label.pack()
+# Set background color
+app.configure(bg="#282C34")
 
-city_entry = Entry(app)
-city_entry.pack()
+style = ttk.Style()
+style.configure("TLabel", font=("Helvetica", 14), background="#282C34", foreground="#FFFFFF")
+style.configure("TButton", font=("Helvetica", 14), background="#61AFEF", foreground="#FFFFFF")
+
+frame = ttk.Frame(app, padding="10", style="TFrame")
+frame.pack(fill="both", expand=True)
+
+city_label = ttk.Label(frame, text="City Name:")
+city_label.pack(pady=5)
+
+city_entry = ttk.Entry(frame, font=("Helvetica", 14))
+city_entry.pack(pady=5)
 
 unit_var = StringVar(app)
 unit_var.set("Celsius")  # default value
 
-unit_label = Label(app, text="Select Temperature Unit:")
-unit_label.pack()
+unit_label = ttk.Label(frame, text="Select Temperature Unit:")
+unit_label.pack(pady=5)
 
-unit_menu = OptionMenu(app, unit_var, "Celsius", "Fahrenheit")
-unit_menu.pack()
+unit_menu = ttk.OptionMenu(frame, unit_var, "Celsius", "Fahrenheit")
+unit_menu.pack(pady=5)
 
-show_button = Button(app, text="Show Weather", command=show_weather)
-show_button.pack()
+show_button = ttk.Button(frame, text="Show Weather", command=show_weather)
+show_button.pack(pady=10)
 
-weather_label = Label(app, text="", font=("Helvetica", 14))
-weather_label.pack()
+weather_label = ttk.Label(frame, text="", font=("Helvetica", 14), wraplength=500)
+weather_label.pack(pady=10)
+
+icon_canvas = Canvas(frame, width=100, height=100, bg="#282C34", highlightthickness=0)
+icon_canvas.pack(pady=10)
 
 app.mainloop()
